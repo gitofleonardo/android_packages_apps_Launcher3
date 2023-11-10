@@ -45,6 +45,7 @@ import android.view.animation.Interpolator;
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.DropTargetBar;
 import com.android.launcher3.Launcher;
+import com.android.launcher3.LauncherAnimUtils;
 import com.android.launcher3.R;
 import com.android.launcher3.ShortcutAndWidgetContainer;
 import com.android.launcher3.Utilities;
@@ -475,13 +476,7 @@ public class DragLayer extends BaseDragLayer<Launcher> implements LauncherOverla
 
     @Override
     public void onOverlayScrollChanged(float progress) {
-        float alpha = 1 - Interpolators.DEACCEL_3.getInterpolation(progress);
-        float transX = getMeasuredWidth() * progress;
-
-        if (mIsRtl) {
-            transX = -transX;
-        }
-        setTranslationX(transX);
-        getAlphaProperty(ALPHA_INDEX_OVERLAY).setValue(alpha);
+        float scale = mapRange(1 - progress, 0.9f, 1f);
+        LauncherAnimUtils.SCALE_PROPERTY.setValue(this, scale);
     }
 }
