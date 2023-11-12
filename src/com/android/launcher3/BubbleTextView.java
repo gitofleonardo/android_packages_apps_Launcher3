@@ -619,6 +619,9 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
      */
     protected void drawDotIfNecessary(Canvas canvas) {
         if (!mForceHideDot && (hasDot() || mDotParams.scale > 0)) {
+            if (mDotInfo != null) {
+                mDotParams.notificationCount = mDotInfo.getNotificationCount();
+            }
             getIconBounds(mDotParams.iconBounds);
             Utilities.scaleRectAboutCenter(mDotParams.iconBounds,
                     IconShape.getNormalizationScale());
