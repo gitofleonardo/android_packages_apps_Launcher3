@@ -46,7 +46,6 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.OverScroller;
 import android.widget.ScrollView;
 
 import androidx.annotation.Nullable;
@@ -58,6 +57,7 @@ import com.android.launcher3.touch.PagedOrientationHandler;
 import com.android.launcher3.touch.PagedOrientationHandler.ChildBounds;
 import com.android.launcher3.util.EdgeEffectCompat;
 import com.android.launcher3.util.IntSet;
+import com.android.launcher3.util.OverScroller;
 import com.android.launcher3.util.Thunk;
 import com.android.launcher3.views.ActivityContext;
 
@@ -153,6 +153,8 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
 
     protected EdgeEffectCompat mEdgeGlowLeft;
     protected EdgeEffectCompat mEdgeGlowRight;
+    protected float mCurrentSnapVelocity = -1;
+    protected boolean mSnapWithVelocity = false;
 
     public PagedView(Context context) {
         this(context, null);
@@ -515,10 +517,12 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
 
     @Override
     public void scrollTo(int x, int y) {
-        x = Utilities.boundToRange(x,
-                mOrientationHandler.getPrimaryValue(mMinScroll, 0), mMaxScroll);
-        y = Utilities.boundToRange(y,
-                mOrientationHandler.getPrimaryValue(0, mMinScroll), mMaxScroll);
+        if (mScroller.isFinished()) {
+            x = Utilities.boundToRange(x,
+                    mOrientationHandler.getPrimaryValue(mMinScroll, 0), mMaxScroll);
+            y = Utilities.boundToRange(y,
+                    mOrientationHandler.getPrimaryValue(0, mMinScroll), mMaxScroll);
+        }
         super.scrollTo(x, y);
     }
 
@@ -552,7 +556,7 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
                 mOrientationHandler.setPrimary(this, VIEW_SCROLL_TO, mScroller.getCurrX());
             }
 
-            if (mAllowOverScroll) {
+            if (mAllowOverScroll && !mScroller.isSpringing()) {
                 if (newPos < mMinScroll && oldPos >= mMinScroll) {
                     mEdgeGlowLeft.onAbsorb((int) mScroller.getCurrVelocity());
                     abortScrollerAnimation(false);
@@ -1670,6 +1674,7 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
         float distance = halfScreenSize + halfScreenSize *
                 distanceInfluenceForSnapDuration(distanceRatio);
 
+        float signum = Math.signum(velocity);
         velocity = Math.abs(velocity);
         velocity = Math.max(mMinSnapVelocity, velocity);
 
@@ -1678,6 +1683,8 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
         // interpolator at zero, ie. 5. We use 4 to make it a little slower.
         duration = 4 * Math.round(1000 * Math.abs(distance / velocity));
 
+        mCurrentSnapVelocity = -velocity * signum;
+        mSnapWithVelocity = true;
         return snapToPage(whichPage, delta, duration);
     }
 
@@ -1735,7 +1742,13 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
             abortScrollerAnimation(false);
         }
 
-        mScroller.startScroll(mOrientationHandler.getPrimaryScroll(this), 0, delta, 0, duration);
+        float snapVelocity = 0;
+        if (mSnapWithVelocity) {
+            snapVelocity = mCurrentSnapVelocity;
+            mSnapWithVelocity = false;
+        }
+        mScroller.startSpringScroll(mOrientationHandler.getPrimaryScroll(this), 0, delta, 0, snapVelocity, 0);
+
         updatePageIndicator();
 
         // Trigger a compute() to finish switching pages if necessary
